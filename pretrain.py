@@ -43,7 +43,7 @@ def train(args, model, optimizer, data_gen):
         list_loss.append(train_loss.numpy().mean())
         step += 1
         if step > steps:
-            print("jumpping out")
+            print("jumping out")
             break
     return np.mean(list_loss)
 
@@ -62,7 +62,7 @@ def evaluate(args, model, test_dataset, collate_fn):
         for k in graph_dict:
             graph_dict[k] = torch.tensor(graph_dict[k])
         for k in feed_dict:
-            feed_dict[k] =  torch.tensor(feed_dict[k])
+            feed_dict[k] = torch.tensor(feed_dict[k])
         loss, sub_losses = model(graph_dict, feed_dict, return_subloss=True)
 
         for name in sub_losses:
@@ -104,17 +104,19 @@ def main(args):
     compound_encoder_config = json.load(open(args.compound_encoder_config, 'r'))
     model_config = json.load(open(args.model_config))
 
+    device = torch.device('cuda:' + str(args.device)) if torch.cuda.is_available() else torch.device('cpu')
+
     if args.dropout_rate is not None:
         compound_encoder_config['dropout_rate'] = args.dropout_rate
         model_config['dropout_rate'] = args.dropout_rate
 
-    compound_encoder = GeoGNNModel(compound_encoder_config)
-    model = GeoPredModel(model_config, compound_encoder)
+    compound_encoder = GeoGNNModel(compound_encoder_config).to(device)
+    model = GeoPredModel(model_config, compound_encoder).to(device)
 
     opt = torch.optim.Adam(model.parameters(), lr=args.learning_rate)
-    print('Total param num: %s' % (len(model.parameters())))
+    print('Total param num: %s' % (sum([param.nelement() for param in model.parameters()])))
     for i, param in enumerate(model.named_parameters()):
-        print(i, param.shape)
+        print(i, param[1].shape)
 
     if not args.init_model is None and not args.init_model == "":
         compound_encoder.load_state_dict(torch.load(args.init_model))
@@ -123,7 +125,7 @@ def main(args):
     dataset = load_smiles_to_dataset(args.data_path)
     if args.DEBUG:
         dataset = dataset[100:180]
-    dataset = dataset[dist.get_rank()::dist.get_world_size()]
+    # dataset = dataset[dist.get_rank()::dist.get_world_size()]
     smiles_lens = [len(smiles) for smiles in dataset]
     print('Total size: %s' % (len(dataset)))
     print('Dataset smiles min/max/avg length: %s%s%s' % (
@@ -170,10 +172,11 @@ def main(args):
 
 if __name__ == '__main__':
     parser = argparse.ArgumentParser()
+    parser.add_argument("--device", type=int, default=7)
     parser.add_argument("--DEBUG", action='store_true', default=False)
     parser.add_argument("--distributed", action='store_true', default=False)
     parser.add_argument("--batch_size", type=int, default=256)
-    parser.add_argument("--num_workers", type=int, default=4)
+    parser.add_argument("--num_workers", type=int, default=1)
     parser.add_argument("--max_epoch", type=int, default=100)
     parser.add_argument("--dataset", type=str, default='zinc')
     parser.add_argument("--data_path", type=str, default=None)
@@ -182,11 +185,11 @@ if __name__ == '__main__':
     parser.add_argument("--model_config", type=str)
     parser.add_argument("--init_model", type=str)
     parser.add_argument("--model_dir", type=str)
-    parser.add_argument("--lr", type=float, default=0.001)
+    parser.add_argument("--learning_rate", type=float, default=0.001)
     parser.add_argument("--dropout_rate", type=float, default=0.2)
     args = parser.parse_args()
 
     if args.distributed:
-        dist.init_process_group()
+        dist.init_process_group(world_size=None, rank=None)
 
     main(args)

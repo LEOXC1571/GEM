@@ -21,13 +21,14 @@
 import numpy as np
 import networkx as nx
 from copy import deepcopy
-import pgl
+import dgl
+# import pgl
 from rdkit.Chem import AllChem
 
 from sklearn.metrics import pairwise_distances
 import hashlib
-from pahelix.utils.compound_tools import mol_to_geognn_graph_data_MMFF3d 
-from pahelix.utils.compound_tools import Compound3DKit 
+from utils.compound_tools import mol_to_geognn_graph_data_MMFF3d
+from utils.compound_tools import Compound3DKit
 
 
 def md5_hash(string):
@@ -265,14 +266,19 @@ class GeoPredCollateFn(object):
         for data in batch_data_list:
             N = len(data[self.atom_names[0]])
             E = len(data['edges'])
-            ab_g = pgl.graph.Graph(num_nodes=N,
-                    edges = data['edges'],
-                    node_feat={name: data[name].reshape([-1, 1]) for name in self.atom_names},
-                    edge_feat={name: data[name].reshape([-1, 1]) for name in self.bond_names + self.bond_float_names})
-            ba_g = pgl.graph.Graph(num_nodes=E,
-                    edges=data['BondAngleGraph_edges'],
-                    node_feat={},
-                    edge_feat={name: data[name].reshape([-1, 1]) for name in self.bond_angle_float_names})
+            ab_g = dgl.graph(data['edges'])
+            ab_g.ndata['x'] = {data[atom].reshape([-1, 1]) for atom in self.atom_names}
+            ab_g.edata['y'] = {data[bond].reshape([-1, 1]) for bond in self.bond_names + self.bond_float_names}
+            # ab_g = pgl.graph.Graph(num_nodes=N,
+            #         edges = data['edges'],
+            #         node_feat={name: data[name].reshape([-1, 1]) for name in self.atom_names},
+            #         edge_feat={name: data[name].reshape([-1, 1]) for name in self.bond_names + self.bond_float_names})
+            ba_g = dgl.graph(data['BondAngleGraph_edges'])
+            ba_g.edata['y'] = {data[bond].reshape([-1, 1]) for bond in self.bond_angle_float_names}
+            # ba_g = pgl.graph.Graph(num_nodes=E,
+            #         edges=data['BondAngleGraph_edges'],
+            #         node_feat={},
+            #         edge_feat={name: data[name].reshape([-1, 1]) for name in self.bond_angle_float_names})
             masked_ab_g, masked_ba_g, mask_node_i, context_id = mask_context_of_geognn_graph(
                     ab_g, ba_g, mask_ratio=self.mask_ratio, subgraph_num=self.Cm_vocab)
             atom_bond_graph_list.append(ab_g)

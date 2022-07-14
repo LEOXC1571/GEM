@@ -6,7 +6,7 @@
 
 
 import numpy as np
-
+import torch
 import torch.nn as nn
 
 # import paddle
@@ -21,6 +21,7 @@ from networks.compound_encoder import AtomEmbedding, BondEmbedding, \
     BondFloatRBF, BondAngleFloatRBF
 from networks.basic_block import MLP
 
+from basic_utils import gather
 
 class GeoGNNBlock(nn.Module):
     def __init__(self, emb_dim, dropout_rate, last_act):
@@ -198,13 +199,13 @@ class GeoPredModel(nn.Module):
         print('[GeoPredModel] pretrain_tasks:%s' % str(self.pretrain_tasks))
 
     def _get_Cm_loss(self, feed_dict, node_repr):
-        masked_node_repr = paddle.gather(node_repr, feed_dict['Cm_node_i'])
+        masked_node_repr = gather(node_repr, feed_dict['Cm_node_i'])
         logits = self.Cm_linear(masked_node_repr)
         loss = self.Cm_loss(logits, feed_dict['Cm_context_id'])
         return loss
 
     def _get_Fg_loss(self, feed_dict, graph_repr):
-        fg_label = paddle.concat(
+        fg_label = torch.concat(
             [feed_dict['Fg_morgan'],
              feed_dict['Fg_daylight'],
              feed_dict['Fg_maccs']], 1)
@@ -213,29 +214,29 @@ class GeoPredModel(nn.Module):
         return loss
 
     def _get_Bar_loss(self, feed_dict, node_repr):
-        node_i_repr = paddle.gather(node_repr, feed_dict['Ba_node_i'])
-        node_j_repr = paddle.gather(node_repr, feed_dict['Ba_node_j'])
-        node_k_repr = paddle.gather(node_repr, feed_dict['Ba_node_k'])
-        node_ijk_repr = paddle.concat([node_i_repr, node_j_repr, node_k_repr], 1)
+        node_i_repr = gather(node_repr, feed_dict['Ba_node_i'])
+        node_j_repr = gather(node_repr, feed_dict['Ba_node_j'])
+        node_k_repr = gather(node_repr, feed_dict['Ba_node_k'])
+        node_ijk_repr = torch.concat([node_i_repr, node_j_repr, node_k_repr], 1)
         pred = self.Bar_mlp(node_ijk_repr)
         loss = self.Bar_loss(pred, feed_dict['Ba_bond_angle'] / np.pi)
         return loss
 
     def _get_Blr_loss(self, feed_dict, node_repr):
-        node_i_repr = paddle.gather(node_repr, feed_dict['Bl_node_i'])
-        node_j_repr = paddle.gather(node_repr, feed_dict['Bl_node_j'])
-        node_ij_repr = paddle.concat([node_i_repr, node_j_repr], 1)
+        node_i_repr = gather(node_repr, feed_dict['Bl_node_i'])
+        node_j_repr = gather(node_repr, feed_dict['Bl_node_j'])
+        node_ij_repr = torch.concat([node_i_repr, node_j_repr], 1)
         pred = self.Blr_mlp(node_ij_repr)
         loss = self.Blr_loss(pred, feed_dict['Bl_bond_length'])
         return loss
 
     def _get_Adc_loss(self, feed_dict, node_repr):
-        node_i_repr = paddle.gather(node_repr, feed_dict['Ad_node_i'])
-        node_j_repr = paddle.gather(node_repr, feed_dict['Ad_node_j'])
-        node_ij_repr = paddle.concat([node_i_repr, node_j_repr], 1)
+        node_i_repr = gather(node_repr, feed_dict['Ad_node_i'])
+        node_j_repr = gather(node_repr, feed_dict['Ad_node_j'])
+        node_ij_repr = torch.concat([node_i_repr, node_j_repr], 1)
         logits = self.Adc_mlp.forward(node_ij_repr)
-        atom_dist = paddle.clip(feed_dict['Ad_atom_dist'], 0.0, 20.0)
-        atom_dist_id = paddle.cast(atom_dist / 20.0 * self.Adc_vocab, 'int64')
+        atom_dist = torch.clamp(feed_dict['Ad_atom_dist'], 0.0, 20.0)
+        atom_dist_id = (atom_dist / 20.0 * self.Adc_vocab).int()
         loss = self.Adc_loss(logits, atom_dist_id)
         return loss
 

@@ -77,7 +77,7 @@ class RBF(nn.Module):
     """
     def __init__(self, centers, gamma, dtype='float32'):
         super(RBF, self).__init__()
-        self.centers = torch.reshape(torch.tensor(centers, dtype=dtype), [1, -1])
+        self.centers = torch.reshape(torch.tensor(centers, dtype=torch.float32), [1, -1])
         self.gamma = gamma
     
     def forward(self, x):

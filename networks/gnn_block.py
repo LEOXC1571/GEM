@@ -39,25 +39,25 @@ class GraphNorm(nn.Module):
         return feature / norm
 
 
-class MeanPool(nn.Layer):
-    """
-    TODO: temporary class due to pgl mean pooling
-    """
-
-    def __init__(self):
-        super().__init__()
-        self.graph_pool = pgl.nn.GraphPool(pool_type="sum")
-
-    def forward(self, graph, node_feat):
-        """
-        mean pooling
-        """
-        sum_pooled = self.graph_pool(graph, node_feat)
-        ones_sum_pooled = self.graph_pool(
-            graph,
-            paddle.ones_like(node_feat, dtype="float32"))
-        pooled = sum_pooled / ones_sum_pooled
-        return pooled
+# class MeanPool(nn.Layer):
+#     """
+#     TODO: temporary class due to pgl mean pooling
+#     """
+#
+#     def __init__(self):
+#         super().__init__()
+#         self.graph_pool = pgl.nn.GraphPool(pool_type="sum")
+#
+#     def forward(self, graph, node_feat):
+#         """
+#         mean pooling
+#         """
+#         sum_pooled = self.graph_pool(graph, node_feat)
+#         ones_sum_pooled = self.graph_pool(
+#             graph,
+#             paddle.ones_like(node_feat, dtype="float32"))
+#         pooled = sum_pooled / ones_sum_pooled
+#         return pooled
 
 
 class GIN(nn.Module):

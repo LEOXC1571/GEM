@@ -24,7 +24,7 @@ from rdkit import Chem
 from rdkit.Chem import AllChem
 from rdkit.Chem import rdchem
 
-from pahelix.utils.compound_constants import DAY_LIGHT_FG_SMARTS_LIST
+from utils.compound_constants import DAY_LIGHT_FG_SMARTS_LIST
 
 
 def get_gasteiger_partial_charges(mol, n_iter=12):

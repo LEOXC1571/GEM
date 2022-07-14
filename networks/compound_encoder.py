@@ -42,7 +42,7 @@ class AtomEmbedding(nn.Module):
             embed = nn.Embedding(
                     CompoundKit.get_atom_feature_size(name) + 5,
                     embed_dim)
-            embed.weight.data.apply(nn.init.xavier_uniform_())
+            nn.init.xavier_uniform_(embed.weight.data)
             self.embed_list.append(embed)
 
     def forward(self, node_features):
@@ -56,7 +56,7 @@ class AtomEmbedding(nn.Module):
         return out_embed
 
 
-class AtomFloatEmbedding(nn.Layer):
+class AtomFloatEmbedding(nn.Module):
     """
     Atom Float Encoder
     """
@@ -73,8 +73,8 @@ class AtomFloatEmbedding(nn.Layer):
         else:
             self.rbf_params = rbf_params
 
-        self.linear_list = nn.LayerList()
-        self.rbf_list = nn.LayerList()
+        self.linear_list = nn.ModuleList()
+        self.rbf_list = nn.ModuleList()
         for name in self.atom_float_names:
             centers, gamma = self.rbf_params[name]
             rbf = RBF(centers, gamma)
@@ -108,7 +108,7 @@ class BondEmbedding(nn.Module):
             embed = nn.Embedding(
                     CompoundKit.get_bond_feature_size(name) + 5,
                     embed_dim)
-            embed.weight.data.apply(nn.init.xavier_uniform_())
+            nn.init.xavier_uniform_(embed.weight.data)
             self.embed_list.append(embed)
 
     def forward(self, edge_features):

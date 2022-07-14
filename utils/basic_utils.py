@@ -20,8 +20,12 @@ import numpy as np
 import os
 import random
 import json
-
+import torch
 from torch.utils.data import DataLoader
+
+
+_dygraph_tracer_ = None
+_in_eager_mode_ = (os.environ.get('FLAGS_enable_eager_mode') == '1')
 
 
 def mp_pool_map(list_input, func, num_workers):
@@ -56,3 +60,19 @@ def mp_pool_map(list_input, func, num_workers):
 def load_json_config(path):
     """tbd"""
     return json.load(open(path, 'r'))
+
+
+def gather(x, index, axis=None, name=None):
+    if axis is None:
+        axis = 0
+
+    temp = []
+    if axis == 1:
+        x = x.T
+    for i in index:
+        temp.append(x[index,:])
+    output = torch.tensor(temp)
+    if axis == 1:
+        return output.T
+    else:
+        return output
