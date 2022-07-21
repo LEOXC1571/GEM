@@ -102,7 +102,7 @@ def load_smiles_to_dataset(data_path):
 
 def main(args):
     compound_encoder_config = json.load(open(args.compound_encoder_config, 'r'))
-    model_config = json.load(open(args.model_config))
+    model_config = json.load(open(args.model_config, 'r'))
 
     device = torch.device('cuda:' + str(args.device)) if torch.cuda.is_available() else torch.device('cpu')
 
@@ -128,7 +128,7 @@ def main(args):
     # dataset = dataset[dist.get_rank()::dist.get_world_size()]
     smiles_lens = [len(smiles) for smiles in dataset]
     print('Total size: %s' % (len(dataset)))
-    print('Dataset smiles min/max/avg length: %s%s%s' % (
+    print('Dataset smiles min/max/avg length: %s %s %s' % (
         np.min(smiles_lens), np.max(smiles_lens), np.mean(smiles_lens)
     ))
     transform_fn = GeoPredTransformFn(model_config['pretrain_tasks'], model_config['mask_ratio'])
@@ -172,7 +172,7 @@ def main(args):
 
 if __name__ == '__main__':
     parser = argparse.ArgumentParser()
-    parser.add_argument("--device", type=int, default=7)
+    parser.add_argument("--device", type=int, default=6)
     parser.add_argument("--DEBUG", action='store_true', default=False)
     parser.add_argument("--distributed", action='store_true', default=False)
     parser.add_argument("--batch_size", type=int, default=256)

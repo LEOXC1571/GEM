@@ -21,7 +21,7 @@ from networks.compound_encoder import AtomEmbedding, BondEmbedding, \
     BondFloatRBF, BondAngleFloatRBF
 from networks.basic_block import MLP
 
-from basic_utils import gather
+from .basic_utils import gather
 
 class GeoGNNBlock(nn.Module):
     def __init__(self, emb_dim, dropout_rate, last_act):

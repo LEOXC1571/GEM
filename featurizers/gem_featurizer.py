@@ -266,15 +266,17 @@ class GeoPredCollateFn(object):
         for data in batch_data_list:
             N = len(data[self.atom_names[0]])
             E = len(data['edges'])
-            ab_g = dgl.graph(data['edges'])
-            ab_g.ndata['x'] = {data[atom].reshape([-1, 1]) for atom in self.atom_names}
-            ab_g.edata['y'] = {data[bond].reshape([-1, 1]) for bond in self.bond_names + self.bond_float_names}
+            # ab_g = dgl.graph(data['edges'])
+            ab_g = dgl.DGLGraph((data['edges'][:, 0], data['edges'][:, 1]))
+            ab_g.ndata['x'] = {np.array(data[atom]).reshape([-1, 1]) for atom in self.atom_names}
+            ab_g.edata['y'] = {np.array(data[bond]).reshape([-1, 1]) for bond in self.bond_names + self.bond_float_names}
             # ab_g = pgl.graph.Graph(num_nodes=N,
             #         edges = data['edges'],
             #         node_feat={name: data[name].reshape([-1, 1]) for name in self.atom_names},
             #         edge_feat={name: data[name].reshape([-1, 1]) for name in self.bond_names + self.bond_float_names})
-            ba_g = dgl.graph(data['BondAngleGraph_edges'])
-            ba_g.edata['y'] = {data[bond].reshape([-1, 1]) for bond in self.bond_angle_float_names}
+            # ba_g = dgl.graph(data['BondAngleGraph_edges'])
+            ba_g = dgl.DGLGraph((data['BondAngleGraph_edges'][:, 0], data['BondAngleGraph_edges'][:, 1]))
+            ba_g.edata['y'] = {np.array(data[bond]).reshape([-1, 1]) for bond in self.bond_angle_float_names}
             # ba_g = pgl.graph.Graph(num_nodes=E,
             #         edges=data['BondAngleGraph_edges'],
             #         node_feat={},
@@ -311,22 +313,22 @@ class GeoPredCollateFn(object):
         graph_dict = {}    
         feed_dict = {}
         
-        atom_bond_graph = pgl.Graph.batch(atom_bond_graph_list)
+        atom_bond_graph = dgl.Graph.batch(atom_bond_graph_list)
         self._flat_shapes(atom_bond_graph.node_feat)
         self._flat_shapes(atom_bond_graph.edge_feat)
         graph_dict['atom_bond_graph'] = atom_bond_graph
 
-        bond_angle_graph = pgl.Graph.batch(bond_angle_graph_list)
+        bond_angle_graph = dgl.Graph.batch(bond_angle_graph_list)
         self._flat_shapes(bond_angle_graph.node_feat)
         self._flat_shapes(bond_angle_graph.edge_feat)
         graph_dict['bond_angle_graph'] = bond_angle_graph
 
-        masked_atom_bond_graph = pgl.Graph.batch(masked_atom_bond_graph_list)
+        masked_atom_bond_graph = dgl.batch(masked_atom_bond_graph_list)
         self._flat_shapes(masked_atom_bond_graph.node_feat)
         self._flat_shapes(masked_atom_bond_graph.edge_feat)
         graph_dict['masked_atom_bond_graph'] = masked_atom_bond_graph
 
-        masked_bond_angle_graph = pgl.Graph.batch(masked_bond_angle_graph_list)
+        masked_bond_angle_graph = dgl.Graph.batch(masked_bond_angle_graph_list)
         self._flat_shapes(masked_bond_angle_graph.node_feat)
         self._flat_shapes(masked_bond_angle_graph.edge_feat)         
         graph_dict['masked_bond_angle_graph'] = masked_bond_angle_graph
