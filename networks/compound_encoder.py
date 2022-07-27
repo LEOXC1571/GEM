@@ -50,9 +50,15 @@ class AtomEmbedding(nn.Module):
         Args: 
             node_features(dict of tensor): node features.
         """
+        out_embed = []
+        # # out_embed_list = []
+        # for i, name in enumerate(self.atom_names):
+        #     out_embed.append(self.embed_list[i](node_features[name].long()))
+        # out_embed = torch.stack(out_embed, dim=1)
+        # out_embed = torch.sum(out_embed, dim=1, keepdim=False)
         out_embed = 0
         for i, name in enumerate(self.atom_names):
-            out_embed += self.embed_list[i](node_features[name])
+            out_embed += self.embed_list[i](node_features[name].long())
         return out_embed
 
 
@@ -87,6 +93,7 @@ class AtomFloatEmbedding(nn.Module):
         Args: 
             feats(dict of tensor): node float features.
         """
+
         out_embed = 0
         for i, name in enumerate(self.atom_float_names):
             x = feats[name]
@@ -116,9 +123,14 @@ class BondEmbedding(nn.Module):
         Args: 
             edge_features(dict of tensor): edge features.
         """
+        # out_embed = []
+        # for i, name in enumerate(self.bond_names):
+        #     out_embed.append(self.embed_list[i](edge_features[name].long()))
+        # out_embed = torch.stack(out_embed, dim=1)
+        # out_embed = torch.sum(out_embed, dim=1, keepdim=False)
         out_embed = 0
         for i, name in enumerate(self.bond_names):
-            out_embed += self.embed_list[i](edge_features[name])
+            out_embed += self.embed_list[i](torch.LongTensor(edge_features[name].long()))
         return out_embed
 
 
@@ -154,7 +166,7 @@ class BondFloatRBF(nn.Module):
         out_embed = 0
         for i, name in enumerate(self.bond_float_names):
             x = bond_float_features[name]
-            rbf_x = self.rbf_list[i](x)
+            rbf_x = self.rbf_list[i](x).to(self.linear_list[i].weight.device)
             out_embed += self.linear_list[i](rbf_x)
         return out_embed
 

@@ -56,9 +56,10 @@ class GeoGNNModel(nn.Module):
         model_config(dict): a dict of model configurations.
     """
 
-    def __init__(self, model_config={}):
+    def __init__(self, model_config={}, device="cpu"):
         super(GeoGNNModel, self).__init__()
 
+        self.device = device
         self.embed_dim = model_config.get('embed_dim', 32)
         self.dropout_rate = model_config.get('dropout_rate', 0.2)
         self.layer_num = model_config.get('layer_num', 8)
@@ -119,9 +120,9 @@ class GeoGNNModel(nn.Module):
         """
         Build the network.
         """
-        node_hidden = self.init_atom_embedding(atom_bond_graph.node_feat)
-        bond_embed = self.init_bond_embedding(atom_bond_graph.edge_feat)
-        edge_hidden = bond_embed + self.init_bond_float_rbf(atom_bond_graph.edge_feat)
+        node_hidden = self.init_atom_embedding(atom_bond_graph.ndata).to(self.device)
+        bond_embed = self.init_bond_embedding(atom_bond_graph.edata).to(self.device)
+        edge_hidden = bond_embed + self.init_bond_float_rbf(atom_bond_graph.edata)
 
         node_hidden_list = [node_hidden]
         edge_hidden_list = [edge_hidden]
@@ -131,9 +132,9 @@ class GeoGNNModel(nn.Module):
                 node_hidden_list[layer_id],
                 edge_hidden_list[layer_id])
 
-            cur_edge_hidden = self.bond_embedding_list[layer_id](atom_bond_graph.edge_feat)
-            cur_edge_hidden = cur_edge_hidden + self.bond_float_rbf_list[layer_id](atom_bond_graph.edge_feat)
-            cur_angle_hidden = self.bond_angle_float_rbf_list[layer_id](bond_angle_graph.edge_feat)
+            cur_edge_hidden = self.bond_embedding_list[layer_id](atom_bond_graph.edata)
+            cur_edge_hidden = cur_edge_hidden + self.bond_float_rbf_list[layer_id](atom_bond_graph.edata)
+            cur_angle_hidden = self.bond_angle_float_rbf_list[layer_id](bond_angle_graph.edata)
             edge_hidden = self.bond_angle_block_list[layer_id](
                 bond_angle_graph,
                 cur_edge_hidden,

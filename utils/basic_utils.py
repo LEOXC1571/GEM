@@ -76,3 +76,4 @@ def gather(x, index, axis=None, name=None):
         return output.T
     else:
         return output
+

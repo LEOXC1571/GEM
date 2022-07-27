@@ -142,7 +142,7 @@ def main(args):
     print(model_config)
 
     ### build model
-    compound_encoder = GeoGNNModel(compound_encoder_config).to(device)
+    compound_encoder = GeoGNNModel(compound_encoder_config, device)
     model = DownstreamModel(model_config, compound_encoder).to(device)
     if metric == 'square':
         criterion = nn.MSELoss()

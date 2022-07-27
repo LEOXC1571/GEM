@@ -32,10 +32,10 @@ def train(args, model, optimizer, data_gen):
         print('rank:%s step:%s' % (dist.get_rank(), step))
         # if dist.get_rank() == 1:
         #     time.sleep(100000)
-        for k in graph_dict:
-            graph_dict[k] = torch.tensor(graph_dict[k])
-        for k in feed_dict:
-            feed_dict[k] = torch.tensor(feed_dict[k])
+        # for k in graph_dict:
+        #     graph_dict[k] = torch.tensor(graph_dict[k])
+        # for k in feed_dict:
+        #     feed_dict[k] = torch.tensor(feed_dict[k])
         train_loss = model(graph_dict, feed_dict)
         train_loss.backward()
         optimizer.step()
@@ -110,8 +110,9 @@ def main(args):
         compound_encoder_config['dropout_rate'] = args.dropout_rate
         model_config['dropout_rate'] = args.dropout_rate
 
-    compound_encoder = GeoGNNModel(compound_encoder_config).to(device)
-    model = GeoPredModel(model_config, compound_encoder).to(device)
+    compound_encoder = GeoGNNModel(compound_encoder_config, device)
+    model = GeoPredModel(model_config, compound_encoder)
+    model = torch.nn.parallel.DistributedDataParallel(model.to(device))
 
     opt = torch.optim.Adam(model.parameters(), lr=args.learning_rate)
     print('Total param num: %s' % (sum([param.nelement() for param in model.parameters()])))
@@ -172,8 +173,8 @@ def main(args):
 
 if __name__ == '__main__':
     parser = argparse.ArgumentParser()
-    parser.add_argument("--device", type=int, default=6)
-    parser.add_argument("--DEBUG", action='store_true', default=False)
+    parser.add_argument("--device", type=int, default=1)
+    parser.add_argument("--DEBUG", action='store_true', default=True)
     parser.add_argument("--distributed", action='store_true', default=False)
     parser.add_argument("--batch_size", type=int, default=256)
     parser.add_argument("--num_workers", type=int, default=1)
@@ -189,7 +190,8 @@ if __name__ == '__main__':
     parser.add_argument("--dropout_rate", type=float, default=0.2)
     args = parser.parse_args()
 
-    if args.distributed:
-        dist.init_process_group(world_size=None, rank=None)
+
+    dist.init_process_group('nccl', init_method='file:/home/xc/my_file', world_size=1, rank=0)
+    # dist.init_process_group(world_size=None, rank=None)
 
     main(args)

@@ -23,6 +23,7 @@ import networkx as nx
 from copy import deepcopy
 import dgl
 # import pgl
+import torch
 from rdkit.Chem import AllChem
 
 from sklearn.metrics import pairwise_distances
@@ -48,16 +49,16 @@ def mask_context_of_geognn_graph(
     """tbd"""
     def get_subgraph_str(g, atom_index, nei_atom_indices, nei_bond_indices):
         """tbd"""
-        atomic_num = g.node_feat['atomic_num'].flatten()
-        bond_type = g.edge_feat['bond_type'].flatten()
+        atomic_num = g.ndata['atomic_num'].flatten()
+        bond_type = g.edata['bond_type'].flatten()
         subgraph_str = 'A' + str(atomic_num[atom_index])
         subgraph_str += 'N' + ':'.join([str(x) for x in np.sort(atomic_num[nei_atom_indices])])
         subgraph_str += 'E' + ':'.join([str(x) for x in np.sort(bond_type[nei_bond_indices])])
         return subgraph_str
 
     g = deepcopy(g)
-    N = g.num_nodes
-    E = g.num_edges
+    N = g.num_nodes()
+    E = g.num_edges()
     full_atom_indices = np.arange(N)
     full_bond_indices = np.arange(E)
 
@@ -68,11 +69,15 @@ def mask_context_of_geognn_graph(
     Cm_node_i = []
     masked_bond_indices = []
     for atom_index in target_atom_indices:
-        left_nei_bond_indices = full_bond_indices[g.edges[:, 0] == atom_index]
-        right_nei_bond_indices = full_bond_indices[g.edges[:, 1] == atom_index]
+        left_nei_bond_indices = full_bond_indices[g.edges()[0] == atom_index]
+        right_nei_bond_indices = full_bond_indices[g.edges()[1] == atom_index]
+        # left_nei_bond_indices = full_bond_indices[g.edges[:, 0] == atom_index]
+        # right_nei_bond_indices = full_bond_indices[g.edges[:, 1] == atom_index]
         nei_bond_indices = np.append(left_nei_bond_indices, right_nei_bond_indices)
-        left_nei_atom_indices = g.edges[left_nei_bond_indices, 1]
-        right_nei_atom_indices = g.edges[right_nei_bond_indices, 0]
+        left_nei_atom_indices = g.edges()[1][left_nei_bond_indices]
+        right_nei_atom_indices = g.edges()[0][right_nei_bond_indices]
+        # left_nei_atom_indices = g.edges[left_nei_bond_indices, 1]
+        # right_nei_atom_indices = g.edges[right_nei_bond_indices, 0]
         nei_atom_indices = np.append(left_nei_atom_indices, right_nei_atom_indices)
 
         if version == 'gem':
@@ -91,21 +96,23 @@ def mask_context_of_geognn_graph(
     target_labels = np.array(target_labels)
     Cm_node_i = np.concatenate(Cm_node_i, 0)
     masked_bond_indices = np.concatenate(masked_bond_indices, 0)
-    for name in g.node_feat:
-        g.node_feat[name][Cm_node_i] = mask_value
-    for name in g.edge_feat:
-        g.edge_feat[name][masked_bond_indices] = mask_value
+    for name in g.ndata:
+        g.ndata[name][Cm_node_i] = mask_value
+    for name in g.edata:
+        g.edata[name][masked_bond_indices] = mask_value
 
     # mask superedge_g
-    full_superedge_indices = np.arange(superedge_g.num_edges)
+    full_superedge_indices = np.arange(superedge_g.num_edges())
     masked_superedge_indices = []
     for bond_index in masked_bond_indices:
-        left_indices = full_superedge_indices[superedge_g.edges[:, 0] == bond_index]
-        right_indices = full_superedge_indices[superedge_g.edges[:, 1] == bond_index]
+        left_indices = full_superedge_indices[superedge_g.edges()[0] == bond_index]
+        right_indices = full_superedge_indices[superedge_g.edges()[1] == bond_index]
+        # left_indices = full_superedge_indices[superedge_g.edges[:, 0] == bond_index]
+        # right_indices = full_superedge_indices[superedge_g.edges[:, 1] == bond_index]
         masked_superedge_indices.append(np.append(left_indices, right_indices))
     masked_superedge_indices = np.concatenate(masked_superedge_indices, 0)
-    for name in superedge_g.edge_feat:
-        superedge_g.edge_feat[name][masked_superedge_indices] = mask_value
+    for name in superedge_g.edata:
+        superedge_g.edata[name][masked_superedge_indices] = mask_value
     return [g, superedge_g, target_atom_indices, target_labels]
     
 
@@ -267,16 +274,22 @@ class GeoPredCollateFn(object):
             N = len(data[self.atom_names[0]])
             E = len(data['edges'])
             # ab_g = dgl.graph(data['edges'])
-            ab_g = dgl.DGLGraph((data['edges'][:, 0], data['edges'][:, 1]))
-            ab_g.ndata['x'] = {np.array(data[atom]).reshape([-1, 1]) for atom in self.atom_names}
-            ab_g.edata['y'] = {np.array(data[bond]).reshape([-1, 1]) for bond in self.bond_names + self.bond_float_names}
+            ab_g = dgl.graph((torch.tensor(data['edges'][:, 0]), torch.tensor(data['edges'][:, 1])))
+            for atom in self.atom_names:
+                ab_g.ndata[atom] = torch.Tensor(data[atom]).reshape(-1, 1)
+            for bond in self.bond_names + self.bond_float_names:
+                ab_g.edata[bond] = torch.tensor(data[bond]).reshape(-1, 1)
+            # ab_g.ndata['x'] = {data[atom].reshape(-1, 1) for atom in self.atom_names}
+            # ab_g.edata['y'] = {data[bond].reshape(-1, 1) for bond in self.bond_names + self.bond_float_names}
             # ab_g = pgl.graph.Graph(num_nodes=N,
             #         edges = data['edges'],
             #         node_feat={name: data[name].reshape([-1, 1]) for name in self.atom_names},
             #         edge_feat={name: data[name].reshape([-1, 1]) for name in self.bond_names + self.bond_float_names})
             # ba_g = dgl.graph(data['BondAngleGraph_edges'])
-            ba_g = dgl.DGLGraph((data['BondAngleGraph_edges'][:, 0], data['BondAngleGraph_edges'][:, 1]))
-            ba_g.edata['y'] = {np.array(data[bond]).reshape([-1, 1]) for bond in self.bond_angle_float_names}
+            ba_g = dgl.graph((torch.tensor(data['BondAngleGraph_edges'][:, 0]), torch.tensor(data['BondAngleGraph_edges'][:, 1])))
+            for bond_float in self.bond_angle_float_names:
+                ba_g.edata[bond_float] = torch.tensor(data[bond_float]).reshape(-1, 1)
+            # ba_g.edata['y'] = {data[bond].reshape(-1, 1) for bond in self.bond_angle_float_names}
             # ba_g = pgl.graph.Graph(num_nodes=E,
             #         edges=data['BondAngleGraph_edges'],
             #         node_feat={},
@@ -313,24 +326,24 @@ class GeoPredCollateFn(object):
         graph_dict = {}    
         feed_dict = {}
         
-        atom_bond_graph = dgl.Graph.batch(atom_bond_graph_list)
-        self._flat_shapes(atom_bond_graph.node_feat)
-        self._flat_shapes(atom_bond_graph.edge_feat)
+        atom_bond_graph = dgl.batch(atom_bond_graph_list)
+        self._flat_shapes(atom_bond_graph.ndata)
+        self._flat_shapes(atom_bond_graph.edata)
         graph_dict['atom_bond_graph'] = atom_bond_graph
 
-        bond_angle_graph = dgl.Graph.batch(bond_angle_graph_list)
-        self._flat_shapes(bond_angle_graph.node_feat)
-        self._flat_shapes(bond_angle_graph.edge_feat)
+        bond_angle_graph = dgl.batch(bond_angle_graph_list)
+        self._flat_shapes(bond_angle_graph.ndata)
+        self._flat_shapes(bond_angle_graph.edata)
         graph_dict['bond_angle_graph'] = bond_angle_graph
 
         masked_atom_bond_graph = dgl.batch(masked_atom_bond_graph_list)
-        self._flat_shapes(masked_atom_bond_graph.node_feat)
-        self._flat_shapes(masked_atom_bond_graph.edge_feat)
+        self._flat_shapes(masked_atom_bond_graph.ndata)
+        self._flat_shapes(masked_atom_bond_graph.edata)
         graph_dict['masked_atom_bond_graph'] = masked_atom_bond_graph
 
-        masked_bond_angle_graph = dgl.Graph.batch(masked_bond_angle_graph_list)
-        self._flat_shapes(masked_bond_angle_graph.node_feat)
-        self._flat_shapes(masked_bond_angle_graph.edge_feat)         
+        masked_bond_angle_graph = dgl.batch(masked_bond_angle_graph_list)
+        self._flat_shapes(masked_bond_angle_graph.ndata)
+        self._flat_shapes(masked_bond_angle_graph.edata)
         graph_dict['masked_bond_angle_graph'] = masked_bond_angle_graph
 
         if 'Cm' in self.pretrain_tasks:
